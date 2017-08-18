@@ -11,15 +11,18 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import java.io.*;
-import org.xml.sax.ContentHandler;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/request")
 public class WebController {
+
+    private static final String REGEXP_FOR_DOT = "^[0-9]{1,10}\\.[0-9]{1,10}$";
+    private static final String REGEXP_FOR_COMMA = "^[0-9]{1,10},[0-9]{1,10}$";
 
     @RequestMapping(method = RequestMethod.GET, produces = MediaType.APPLICATION_XML_VALUE)
     public @ResponseBody
@@ -69,72 +72,40 @@ public class WebController {
         requestDetail.setClientInfo(clientInfo);
         requestDetail.setParameters(parameters);
 
-        String filePath = "src/main/resources/page.xml";
-        convertObjectToXml(requestDetail, filePath);
+        File tempFile = File.createTempFile("rstkm", null);
 
-        BufferedReader br = new BufferedReader(new FileReader(filePath));
+        convertObjectToXml(requestDetail, tempFile);
 
-        char[] arr = new char[(int) new File(filePath).length()];
+        BufferedReader br = new BufferedReader(new FileReader(tempFile));
+
+        char[] arr = new char[(int) tempFile.length()];
 
         br.read(arr);
+
+        tempFile.deleteOnExit();
 
         return String.valueOf(arr);
     }
 
-    private static void convertObjectToXml(RequestDetail requestDetail, String filePath) {
+    private static void convertObjectToXml(RequestDetail requestDetail, File file) {
         try {
             JAXBContext context = JAXBContext.newInstance(RequestDetail.class);
             Marshaller marshaller = context.createMarshaller();
             marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
-            marshaller.marshal(requestDetail, new File(filePath));
+            marshaller.marshal(requestDetail, file);
         } catch (JAXBException e) {
             e.printStackTrace();
         }
     }
 
     private Boolean checkString(String param, String splitter) {
+        Pattern pattern;
         if (splitter.equals(".")) {
-            if (param.split("").length < 22) {
-                try {
-                    Double.parseDouble(param);
-                    String[] paramSplit = param.split("");
-                    for (int i = 0; i < paramSplit.length; i++) {
-                        if (paramSplit[i].equals(".")) {
-                            return i <= 10 &&
-                                    paramSplit.length - i <= 11 &&
-                                    i != paramSplit.length - 1 &&
-                                    i != 0;
-                        }
-                    }
-                } catch (Exception e) {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-        }
-        String[] paramSplit = param.split(splitter);
-        if (paramSplit.length == 2 &&
-                paramSplit[0].split("").length <= 10 &&
-                paramSplit[1].split("").length <= 10) {
-            try {
-                Integer.parseInt(paramSplit[0]);
-                Integer.parseInt(paramSplit[1]);
-                return true;
-            } catch (Exception e) {
-                return false;
-            }
+            pattern = Pattern.compile(REGEXP_FOR_DOT);
         } else {
-            if (paramSplit.length < 2) {
-                try {
-                    Integer.parseInt(param);
-                    return true;
-                } catch (Exception e) {
-                    return false;
-                }
-            } else {
-                return false;
-            }
+            pattern = Pattern.compile(REGEXP_FOR_COMMA);
         }
+        Matcher matcher = pattern.matcher(param);
+        return matcher.matches();
     }
 }
