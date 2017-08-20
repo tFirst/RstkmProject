@@ -21,8 +21,7 @@ import java.util.regex.Pattern;
 @RequestMapping("/request")
 public class WebController {
 
-    private static final String REGEXP_FOR_DOT = "^[0-9]{1,10}\\.[0-9]{1,10}$";
-    private static final String REGEXP_FOR_COMMA = "^[0-9]{1,10},[0-9]{1,10}$";
+    private static final String REGULAR_EXPRESSION = "^[0-9]{1,10}[.,][0-9]{1,10}$";
 
     @RequestMapping(method = RequestMethod.GET, produces = MediaType.APPLICATION_XML_VALUE)
     public @ResponseBody
@@ -53,14 +52,10 @@ public class WebController {
             parameter.setName((String) keys[i]);
             parameter.setParameter(param);
 
-            if (checkString(param, ".")) {
+            if (checkParam(param)) {
                 numParam.add(parameter);
             } else {
-                if (checkString(param, ",")) {
-                    numParam.add(parameter);
-                } else {
-                    strParam.add(parameter);
-                }
+                strParam.add(parameter);
             }
         }
 
@@ -72,19 +67,23 @@ public class WebController {
         requestDetail.setClientInfo(clientInfo);
         requestDetail.setParameters(parameters);
 
-        File tempFile = File.createTempFile("rstkm", null);
+        try {
+            File tempFile = File.createTempFile("rstkm", null);
 
-        convertObjectToXml(requestDetail, tempFile);
+            convertObjectToXml(requestDetail, tempFile);
 
-        BufferedReader br = new BufferedReader(new FileReader(tempFile));
+            BufferedReader br = new BufferedReader(new FileReader(tempFile));
 
-        char[] arr = new char[(int) tempFile.length()];
+            char[] arrayStrings = new char[(int) tempFile.length()];
 
-        br.read(arr);
+            br.read(arrayStrings);
 
-        tempFile.deleteOnExit();
+            tempFile.deleteOnExit();
 
-        return String.valueOf(arr);
+            return String.valueOf(arrayStrings);
+        } catch (Exception e) {
+           return e.getMessage();
+        }
     }
 
     private static void convertObjectToXml(RequestDetail requestDetail, File file) {
@@ -98,13 +97,8 @@ public class WebController {
         }
     }
 
-    private Boolean checkString(String param, String splitter) {
-        Pattern pattern;
-        if (splitter.equals(".")) {
-            pattern = Pattern.compile(REGEXP_FOR_DOT);
-        } else {
-            pattern = Pattern.compile(REGEXP_FOR_COMMA);
-        }
+    private Boolean checkParam(String param) {
+        Pattern pattern = Pattern.compile(REGULAR_EXPRESSION);
         Matcher matcher = pattern.matcher(param);
         return matcher.matches();
     }
